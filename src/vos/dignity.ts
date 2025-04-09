@@ -7,7 +7,7 @@ export enum Dignity {
   Fall = 4,
 }
 
-const dignities = {
+const dignities: { [key in Planet]: { [key in Sign]?: Dignity } } = {
   [Planet.Sun]: {
     [Sign.Leo]: Dignity.Domicile,
     [Sign.Aquarius]: Dignity.Detriment,
@@ -58,12 +58,11 @@ const dignities = {
     [Sign.Libra]: Dignity.Exaltation,
     [Sign.Aries]: Dignity.Fall,
   },
-}
+};
 
 export function dignity(p: Planet, lon: number): Dignity | undefined {
   const sign = signs[Math.floor(lon / 30)];
-  if (sign === undefined) throw new Error(`sign not found at lon ${lon}`); // should never happen
-  const digs: any = dignities[p];
-  if (!digs) throw new Error(`dignity not found for planet ${p}`); // should never happen
-  return digs[sign];
+  const digs = dignities[p];
+  const d = digs[sign];
+  return d;
 }

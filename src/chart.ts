@@ -28,34 +28,70 @@ function dignityColor(colors: ChartColorsDignities, d?: Dignity) {
   }
 }
 
+interface positionsOutput {
+  houses: number[];
+  planets: { [key in Planet]: { lon: number; slon: number } };
+}
+
+function positions(
+  sweph: Sweph,
+  date: Date,
+  geolat: number,
+  geolon: number
+): { out: positionsOutput; err?: string } {
+  const out: positionsOutput = {
+    houses: [],
+    planets: {
+      [Planet.Sun]: { lon: 0, slon: 0 },
+      [Planet.Moon]: { lon: 0, slon: 0 },
+      [Planet.Mercury]: { lon: 0, slon: 0 },
+      [Planet.Venus]: { lon: 0, slon: 0 },
+      [Planet.Mars]: { lon: 0, slon: 0 },
+      [Planet.Jupiter]: { lon: 0, slon: 0 },
+      [Planet.Saturn]: { lon: 0, slon: 0 },
+    },
+  };
+  const { jd, err } = sweph.jd(date);
+  if (err) return { out, err: `jd: ${err}` };
+  const houses = sweph.houses(jd, geolat, geolon, HouseSystem.Placidus);
+  out.houses = houses;
+  for (const planet of planets) {
+    const { lon, slon, err } = sweph.planetPos(jd, planet);
+    if (err) return { out, err: `planet ${planet}: ${err}` };
+    out.planets[planet] = { lon, slon };
+  }
+  return { out };
+}
+
 export function drawChart(
   ctx: CanvasRenderingContext2D,
   sweph: Sweph,
   chartColors: ChartColors,
   opts: ChartCfg
-) {
+): string | void {
   const { date, width, height, radius, geolat, geolon } = opts;
   ctx.clearRect(0, 0, width, height);
   ctx.fillStyle = chartColors.background;
   ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-  const { jd, err } = sweph.jd(date);
-  if (err) throw err; // TODO: handle error
   ctx.strokeStyle = chartColors.stroke;
   ctx.beginPath();
   ctx.arc(width / 2, height / 2, radius, 0, 2 * Math.PI);
   ctx.stroke();
 
+  const ps = positions(sweph, date, geolat, geolon);
+  if (ps.err) return ps.err;
+
+  const houses = ps.out.houses;
+
   const metrics = ctx.measureText("M");
   const fontHeight =
     metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent;
-
-  const houses = sweph.houses(jd, geolat, geolon, HouseSystem.Placidus);
 
   const angleOffset = 180 + houses[0];
 
   // draw house lines
   {
-    const innerCircleRadius = 20;
+    const innerCircleRadius = Math.min(width,height)*0.0333333;
     ctx.beginPath();
     ctx.arc(width / 2, height / 2, innerCircleRadius, 0, 2 * Math.PI);
     ctx.lineWidth = 3;
@@ -63,9 +99,9 @@ export function drawChart(
     for (let i = 0; i < houses.length; i++) {
       let r = radius;
       ctx.lineWidth = 1;
-      if (!(i % 6) || !((i - 3) % 6)) {
-        r += 20;
-        // make the stroke thicker
+      if (i === 0 || i === 3 || i === 6 || i === 9) {
+        // make the stroke thicker and longer
+        r += Math.min(width,height)*0.0333333;
         ctx.lineWidth = 3;
       }
       const rads = ((angleOffset - houses[i]) * Math.PI) / 180;
@@ -93,31 +129,37 @@ export function drawChart(
     }
   }
 
-  const planetPositions = new Map<
-    Planet,
-    {
+  const planetPositions: {
+    [key in Planet]: {
       rads: number;
       lon: number;
       slon: number;
       x: number;
       y: number;
-    }
-  >();
+    };
+  } = {
+    [Planet.Sun]: { rads: 0, lon: 0, slon: 0, x: 0, y: 0 },
+    [Planet.Moon]: { rads: 0, lon: 0, slon: 0, x: 0, y: 0 },
+    [Planet.Mercury]: { rads: 0, lon: 0, slon: 0, x: 0, y: 0 },
+    [Planet.Venus]: { rads: 0, lon: 0, slon: 0, x: 0, y: 0 },
+    [Planet.Mars]: { rads: 0, lon: 0, slon: 0, x: 0, y: 0 },
+    [Planet.Jupiter]: { rads: 0, lon: 0, slon: 0, x: 0, y: 0 },
+    [Planet.Saturn]: { rads: 0, lon: 0, slon: 0, x: 0, y: 0 },
+  };
 
   // write planets
   {
     ctx.font = "20px glyphsFont";
     ctx.textAlign = "center";
-    const radiusPlanets = radius + 20;
+    const radiusPlanets = radius + Math.min(width,height)*0.0333333;
     for (const planet of planets) {
       const glyph = planetGlyph[planet];
-      const { lon, slon, err } = sweph.planetPos(jd, planet);
-      if (err) throw err;
+      const { lon, slon } = ps.out.planets[planet];
       ctx.fillStyle = dignityColor(chartColors.dignities, dignity(planet, lon));
       const rads = ((angleOffset - lon) * Math.PI) / 180;
       const x = width / 2 + radiusPlanets * Math.cos(rads);
       const y = height / 2 + radiusPlanets * Math.sin(rads);
-      planetPositions.set(planet, { x, y, rads, lon, slon });
+      planetPositions[planet] = { x, y, rads, lon, slon };
       ctx.fillText(glyph, x, y + fontHeight / 4);
       // if retrograde, write an R
       if (slon < 0) {
@@ -153,11 +195,9 @@ export function drawChart(
   // part of fortune
   {
     const lonAsc = houses[0];
-    const sun = planetPositions.get(Planet.Sun);
-    if (!sun) throw new Error("Sun not found");
+    const sun = planetPositions[Planet.Sun];
     const { lon: lonSun } = sun;
-    const moon = planetPositions.get(Planet.Moon);
-    if (!moon) throw new Error("Moon not found");
+    const moon = planetPositions[Planet.Moon];
     const { lon: lonMoon } = moon;
     const isDayChart = (lonAsc + 180) % 360 < (lonSun + 180) % 360;
     const lonFortune = isDayChart
@@ -177,10 +217,8 @@ export function drawChart(
     for (let i = 0; i < planets.length; i++) {
       for (let j = i + 1; j < planets.length; j++) {
         // compare each planet to the previous one
-        const p1 = planetPositions.get(planets[i]);
-        if (!p1) throw new Error(`planet at index ${i} not found`);
-        const p2 = planetPositions.get(planets[j]);
-        if (!p2) throw new Error(`planet at index ${i} not found`);
+        const p1 = planetPositions[planets[i]];
+        const p2 = planetPositions[planets[j]];
         const angle = (Math.abs(p1.rads - p2.rads) * 180) / Math.PI;
         const p1sign = Math.floor(p1.lon / 30);
         const p2sign = Math.floor(p2.lon / 30);
@@ -236,7 +274,7 @@ export function drawChart(
     const metrics = ctx.measureText("M");
     const fontHeight =
       metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent;
-    const radiusSign = radius + 40;
+    const radiusSign = radius + Math.min(width,height)*0.0666666;
     for (let i = 0; i < signGlyph.length; i++) {
       const signRads = ((angleOffset - i * 30 - 15) * Math.PI) / 180;
       const x = width / 2 + radiusSign * Math.cos(signRads);

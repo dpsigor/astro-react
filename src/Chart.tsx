@@ -1,37 +1,44 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useContext } from "react";
 import { drawChart } from "./chart";
 import { Sweph } from "./vos/sweph";
-import { Config } from "./ConfigProvider";
+import { ConfigContext } from "./ConfigProvider";
 
-function Chart({ swe, cfg }: { swe: Sweph; cfg: Config }) {
+function Chart({ swe }: { swe: Sweph }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const cfg = useContext(ConfigContext).config;
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) throw new Error("Canvas not found"); // TODO: handle this error
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("Canvas context not found"); // TODO: handle this error
+    try {
+      const canvas = canvasRef.current;
+      if (!canvas) throw new Error("Canvas not found");
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Canvas context not found");
 
-    const { innerWidth, innerHeight } = window;
-    let v = Math.min(innerWidth - 20, innerHeight);
-    if (v > 600) v = 600;
-    if (v > innerHeight - 200) v = innerHeight - 210;
-    if (v > innerWidth - 10) v = innerWidth - 10;
-    if (v < 100) v = 102; // TODO: handle this better
-    const width = v;
-    const height = v;
-    const radius = (v - 100) / 2;
-    canvas.width = width;
-    canvas.height = height;
+      const { innerWidth, innerHeight } = window;
+      let v = Math.min(innerWidth - 20, innerHeight);
+      if (v > 600) v = 600;
+      if (v > innerHeight - 200) v = innerHeight - 210;
+      if (v > innerWidth - 10) v = innerWidth - 10;
+      if (v < 100) v = 102;
+      const width = v;
+      const height = v;
+      const radius = (v - 100) / 2;
+      canvas.width = width;
+      canvas.height = height;
 
-    drawChart(ctx, swe, cfg.chartColors, {
-      date: new Date(cfg.date),
-      geolat: cfg.geolat,
-      geolon: cfg.geolon,
-      width,
-      height,
-      radius,
-    });
+      const drawChartErr = drawChart(ctx, swe, cfg.chartColors, {
+        date: new Date(cfg.date),
+        geolat: cfg.geolat,
+        geolon: cfg.geolon,
+        width,
+        height,
+        radius,
+      });
+      if (drawChartErr) throw `drawChart: ${drawChartErr}`;
+    } catch (e) {
+      console.error(e);
+      // TODO: handle this error
+    }
   }, [cfg]);
 
   return (
