@@ -1,14 +1,25 @@
-import './App.css'
-import Chart from './Chart'
-import { Sweph } from './vos/sweph'
+import { useContext } from "react";
+import "./App.css";
+import Chart from "./Chart";
+import { SwephContext } from "./SwephProvider";
+import LoadingSpinner from "./LoadingSpinner";
+import { FontsContext } from "./FontsProvider";
+import { ConfigContext } from "./ConfigProvider";
+import ChartForm from "./ChartForm";
 
-function App(props: { swh: Sweph }) {
+function App() {
+  const swe = useContext(SwephContext);
+  const fontsOK = useContext(FontsContext);
+  const cfg = useContext(ConfigContext);
+
   return (
     <>
-      <h1>Vite + React</h1>
-      <Chart swh={props.swh}/>
+      <ChartForm />
+      {(swe && fontsOK && <Chart swe={swe} cfg={cfg.config} />) || (
+        <LoadingSpinner />
+      )}
     </>
-  )
+  );
 }
 
-export default App
+export default App;

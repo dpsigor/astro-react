@@ -1,93 +1,5 @@
 import { WASI, File, OpenFile } from "@bjorn3/browser_wasi_shim";
-import { Planet, Dignity, Sign, HouseSystem, signs } from "./vos/sweph";
-
-export const nodeGlyphs = [
-  "L", // north
-  "M",
-];
-
-export const partFortuneGlyph = 'O'
-export const ACGlyph = 'P'
-export const MCGlyph = 'Q'
-
-export const signGlyph = [
-  "a",
-  "b",
-  "c",
-  "d",
-  "e",
-  "f",
-  "g",
-  "h",
-  "i",
-  "j",
-  "k",
-  "l",
-];
-
-export const signGlyphUnicode = [
-  "♈︎",
-  "♉︎",
-  "♊︎",
-  "♋︎",
-  "♌︎",
-  "♍︎",
-  "♎︎",
-  "♏︎",
-  "♐︎",
-  "♑︎",
-  "♒︎",
-  "♓︎",
-];
-
-export function dignity(p: Planet, lon: number): Dignity | undefined {
-  const sign = signs[Math.floor(lon / 30)];
-  if (sign === undefined) throw new Error(`sign not found at lon ${lon}`);
-  switch (p) {
-    case Planet.Sun:
-      if (sign === Sign.Leo) return Dignity.Domicile;
-      if (sign === Sign.Aquarius) return Dignity.Detriment;
-      if (sign === Sign.Aries) return Dignity.Exaltation;
-      if (sign === Sign.Libra) return Dignity.Fall;
-      return;
-    case Planet.Moon:
-      if (sign === Sign.Cancer) return Dignity.Domicile;
-      if (sign === Sign.Capricorn) return Dignity.Detriment;
-      if (sign === Sign.Taurus) return Dignity.Exaltation;
-      if (sign === Sign.Scorpio) return Dignity.Fall;
-      return;
-    case Planet.Mercury:
-      if (sign === Sign.Gemini) return Dignity.Domicile;
-      if (sign === Sign.Sagittarius) return Dignity.Detriment;
-      if (sign === Sign.Virgo) return Dignity.Domicile;
-      if (sign === Sign.Pisces) return Dignity.Detriment;
-      return;
-    case Planet.Venus:
-      if (sign === Sign.Taurus||sign === Sign.Libra) return Dignity.Domicile;
-      if (sign === Sign.Scorpio || sign === Sign.Aries) return Dignity.Detriment;
-      if (sign === Sign.Pisces) return Dignity.Exaltation;
-      if (sign === Sign.Virgo) return Dignity.Fall;
-      return;
-    case Planet.Mars:
-      if (sign === Sign.Aries||sign === Sign.Scorpio) return Dignity.Domicile;
-      if (sign === Sign.Libra || sign === Sign.Taurus) return Dignity.Detriment;
-      if (sign === Sign.Capricorn) return Dignity.Exaltation;
-      if (sign === Sign.Cancer) return Dignity.Fall;
-      return;
-    case Planet.Jupiter:
-      if (sign === Sign.Sagittarius||sign === Sign.Pisces) return Dignity.Domicile;
-      if (sign === Sign.Gemini || sign === Sign.Virgo) return Dignity.Detriment;
-      if (sign === Sign.Cancer) return Dignity.Exaltation;
-      if (sign === Sign.Capricorn) return Dignity.Fall;
-      return;
-    case Planet.Saturn:
-      if (sign === Sign.Capricorn||sign === Sign.Aquarius) return Dignity.Domicile;
-      if (sign === Sign.Cancer || sign === Sign.Leo) return Dignity.Detriment;
-      if (sign === Sign.Libra) return Dignity.Exaltation;
-      if (sign === Sign.Aries) return Dignity.Fall;
-      return;
-  }
-}
+import { Planet, HouseSystem } from "./vos/consts";
 
 interface Astro {
   memory: WebAssembly.Memory;
@@ -169,7 +81,12 @@ export class SwEph {
     return { lon, slon: xx[3] };
   }
 
-  houses(jd: number, geolat: number, geolon: number, hsys: HouseSystem): number[] {
+  houses(
+    jd: number,
+    geolat: number,
+    geolon: number,
+    hsys: HouseSystem
+  ): number[] {
     const cuspsPtr = 0;
     const ascmcPtr = 13 * 8;
     this.astro.swe_houses(jd, geolat, geolon, hsys, cuspsPtr, ascmcPtr);
@@ -178,7 +95,7 @@ export class SwEph {
   }
 }
 
-export async function swephInit(): Promise<SwEph> {
+export async function swephInit(rootPath: string): Promise<SwEph> {
   const args: string[] = [];
   const env: string[] = [];
   const fds = [
@@ -188,7 +105,9 @@ export async function swephInit(): Promise<SwEph> {
   ];
   const wasi = new WASI(args, env, fds);
 
-  const wasm = await WebAssembly.compileStreaming(fetch("./astro-react/astro.wasm"));
+  const wasm = await WebAssembly.compileStreaming(
+    fetch(`${rootPath}/astro.wasm`)
+  );
   const inst = await WebAssembly.instantiate(wasm, {
     wasi_snapshot_preview1: wasi.wasiImport,
   });
