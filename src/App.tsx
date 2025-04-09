@@ -1,4 +1,4 @@
-import { useContext } from "react";
+import { useContext, useState } from "react";
 import "./App.css";
 import Chart from "./Chart";
 import { SwephContext } from "./SwephProvider";
@@ -9,11 +9,13 @@ import ChartForm from "./ChartForm";
 function App() {
   const swe = useContext(SwephContext);
   const fontsOK = useContext(FontsContext);
+  const [chartErrored, setChartErrored] = useState(false);
 
   return (
     <>
       <ChartForm />
-      {(swe && fontsOK && <Chart swe={swe} />) || <LoadingSpinner />}
+      {chartErrored && (<div>There was an error rendering the chart</div>)}
+      {(swe && fontsOK && <Chart swe={swe} chartErrored={(v) => setChartErrored(v)} />) || <LoadingSpinner />}
     </>
   );
 }
